@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnapSite — Image to Website</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Variables ── */
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --accent: #7c6aff;
+      --accent2: #ff6a9b;
+      --text: #e8e8f0;
+      --muted: #6b6b85;
+      --success: #4ade80;
+      --error: #f87171;
+      --radius: 16px;
+      --font-head: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── Glow blobs ── */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 0;
+      animation: drift 18s ease-in-out infinite alternate;
+    }
+    .blob-1 { width: 600px; height: 600px; background: var(--accent); top: -200px; left: -200px; }
+    .blob-2 { width: 500px; height: 500px; background: var(--accent2); bottom: -150px; right: -150px; animation-delay: -9s; }
+
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(40px, 30px) scale(1.08); }
+    }
+
+    /* ── Layout ── */
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+      animation: fadeUp 0.7s ease both;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(124, 106, 255, 0.12);
+      border: 1px solid rgba(124, 106, 255, 0.3);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 99px;
+      margin-bottom: 24px;
+    }
+    .badge-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s ease infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    h1 {
+      font-family: var(--font-head);
+      font-size: clamp(2.4rem, 6vw, 3.8rem);
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+    h1 span {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 1.05rem;
+      color: var(--muted);
+      font-weight: 300;
+      line-height: 1.6;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      animation: fadeUp 0.7s 0.1s ease both;
+    }
+
+    /* ── Drop zone ── */
+    #drop-zone {
+      padding: 56px 32px;
+      text-align: center;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.2s, border-color 0.2s;
+      position: relative;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      background: rgba(124, 106, 255, 0.05);
+      border-color: rgba(124, 106, 255, 0.4);
+    }
+
+    #file-input { display: none; }
+
+    .upload-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 20px;
+      background: rgba(124, 106, 255, 0.1);
+      border: 1px solid rgba(124, 106, 255, 0.25);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.25s;
+    }
+    #drop-zone:hover .upload-icon { transform: translateY(-3px); }
+    .upload-icon svg { color: var(--accent); }
+
+    .drop-label { font-family: var(--font-head); font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+    .drop-sub   { font-size: 0.85rem; color: var(--muted); }
+    .drop-sub strong { color: var(--accent); font-weight: 500; cursor: pointer; }
+    .drop-sub strong:hover { text-decoration: underline; }
+
+    /* ── Preview ── */
+    #preview-wrap {
+      display: none;
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      gap: 16px;
+    }
+    #preview-wrap.visible { display: flex; }
+    #preview-img {
+      width: 80px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .preview-meta { flex: 1; min-width: 0; }
+    .preview-name { font-size: 0.9rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .preview-size { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .remove-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-body);
+    }
+    .remove-btn:hover { border-color: var(--error); color: var(--error); }
+
+    /* ── Bottom panel ── */
+    .card-bottom {
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .api-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 200px;
+    }
+    .api-input-wrap label { font-size: 0.82rem; color: var(--muted); white-space: nowrap; }
+    #api-url {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      padding: 9px 12px;
+      border-radius: 10px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #api-url:focus { border-color: var(--accent); }
+    #api-url::placeholder { color: var(--muted); }
+
+    /* ── Generate button ── */
+    #generate-btn {
+      background: linear-gradient(135deg, var(--accent), #9b6aff);
+      color: #fff;
+      border: none;
+      font-family: var(--font-head);
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 12px 28px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+      white-space: nowrap;
+      box-shadow: 0 0 0 0 rgba(124,106,255,0);
+    }
+    #generate-btn:hover:not(:disabled) {
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 30px rgba(124,106,255,0.35);
+    }
+    #generate-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    /* ── Progress ── */
+    #progress-wrap {
+      display: none;
+      padding: 0 24px 24px;
+    }
+    #progress-wrap.visible { display: block; }
+    .progress-bar-track {
+      height: 3px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+    .progress-label { font-size: 0.8rem; color: var(--muted); }
+
+    /* ── Result ── */
+    #result-section {
+      display: none;
+      margin-top: 28px;
+      animation: fadeUp 0.5s ease both;
+    }
+    #result-section.visible { display: block; }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .result-title {
+      font-family: var(--font-head);
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .success-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
+
+    .result-actions { display: flex; gap: 10px; }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.82rem;
+      padding: 8px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    .preview-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+      border-bottom: none;
+      padding: 6px 6px 0;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: var(--font-body);
+      font-size: 0.83rem;
+      padding: 8px 16px;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active { background: var(--bg); color: var(--text); }
+
+    #preview-iframe {
+      width: 100%;
+      height: 500px;
+      border: 1px solid var(--border);
+      border-radius: 0 12px 12px 12px;
+      background: #fff;
+      display: block;
+    }
+
+    #code-view {
+      display: none;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0 12px 12px 12px;
+      padding: 20px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      color: #a0a0c0;
+      line-height: 1.6;
+      max-height: 500px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── Error ── */
+    .error-box {
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px solid rgba(248, 113, 113, 0.25);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 0.88rem;
+      color: var(--error);
+      margin-top: 16px;
+      display: none;
+    }
+    .error-box.visible { display: block; }
+
+    /* ── Stats ── */
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      background: rgba(124, 106, 255, 0.06);
+      border: 1px solid rgba(124, 106, 255, 0.15);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .stat strong { color: var(--accent); font-weight: 600; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      margin-top: 48px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      animation: fadeUp 0.7s 0.2s ease both;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Spinner inside button ── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .spinner.visible { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+
+  <main>
+    <header>
+      <div class="badge"><span class="badge-dot"></span>Powered by Gemini 2.5 Flash</div>
+      <h1>Turn any image<br>into a <span>website</span></h1>
+      <p class="subtitle">Upload a screenshot, wireframe, or sketch — get clean HTML/CSS/JS in seconds. Free, fast, no login.</p>
+    </header>
+
+    <div class="card">
+      <!-- Drop zone -->
+      <div id="drop-zone" role="button" tabindex="0" aria-label="Upload image">
+        <div class="upload-icon">
+          <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <polyline points="16 16 12 12 8 16"></polyline>
+            <line x1="12" y1="12" x2="12" y2="21"></line>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+          </svg>
+        </div>
+        <p class="drop-label">Drop your image here</p>
+        <p class="drop-sub">Drag &amp; drop or <strong id="browse-link">browse files</strong> · JPEG, PNG, WEBP, GIF · max 10 MB</p>
+        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif" />
+      </div>
+
+      <!-- Preview row -->
+      <div id="preview-wrap">
+        <img id="preview-img" alt="Preview" />
+        <div class="preview-meta">
+          <div class="preview-name" id="preview-name"></div>
+          <div class="preview-size" id="preview-size"></div>
+        </div>
+        <button class="remove-btn" id="remove-btn">Remove</button>
+      </div>
+
+      <!-- Bottom controls -->
+      <div class="card-bottom">
+        <div class="api-input-wrap">
+          <label for="api-url">Backend URL</label>
+          <input type="text" id="api-url" placeholder="https://your-app.onrender.com" />
+        </div>
+        <button id="generate-btn" disabled>
+          <span class="spinner" id="spinner"></span>
+          <svg id="btn-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          Generate Site
+        </button>
+      </div>
+
+      <!-- Progress -->
+      <div id="progress-wrap">
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-fill"></div></div>
+        <div class="progress-label" id="progress-label">Sending to Gemini…</div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-box" id="error-box"></div>
+
+    <!-- Result -->
+    <div id="result-section">
+      <div class="result-header">
+        <div class="result-title"><span class="success-dot"></span>Website Generated!</div>
+        <div class="result-actions">
+          <button class="btn-outline" id="download-btn">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download HTML
+          </button>
+          <button class="btn-outline" id="open-btn">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Open in Tab
+          </button>
+        </div>
+      </div>
+
+      <div class="stats-row" id="stats-row"></div>
+
+      <div class="preview-tabs">
+        <button class="tab-btn active" id="tab-preview">Preview</button>
+        <button class="tab-btn" id="tab-code">HTML Code</button>
+      </div>
+      <iframe id="preview-iframe" sandbox="allow-scripts allow-same-origin" title="Generated website preview"></iframe>
+      <pre id="code-view"></pre>
+    </div>
+
+    <footer>
+      Built with FastAPI + Pillow + Gemini 2.5 Flash &nbsp;·&nbsp;
+      <a href="https://aistudio.google.com/app/apikey" target="_blank">Get free Gemini key</a> &nbsp;·&nbsp;
+      <a href="https://render.com" target="_blank">Deploy backend on Render</a>
+    </footer>
+  </main>
+
+  <script>
+    const dropZone   = document.getElementById('drop-zone');
+    const fileInput  = document.getElementById('file-input');
+    const browseLink = document.getElementById('browse-link');
+    const previewWrap= document.getElementById('preview-wrap');
+    const previewImg = document.getElementById('preview-img');
+    const previewName= document.getElementById('preview-name');
+    const previewSize= document.getElementById('preview-size');
+    const removeBtn  = document.getElementById('remove-btn');
+    const generateBtn= document.getElementById('generate-btn');
+    const apiUrl     = document.getElementById('api-url');
+    const progressWrap= document.getElementById('progress-wrap');
+    const progressFill= document.getElementById('progress-fill');
+    const progressLabel= document.getElementById('progress-label');
+    const resultSection= document.getElementById('result-section');
+    const previewIframe= document.getElementById('preview-iframe');
+    const codeView   = document.getElementById('code-view');
+    const downloadBtn= document.getElementById('download-btn');
+    const openBtn    = document.getElementById('open-btn');
+    const errorBox   = document.getElementById('error-box');
+    const spinner    = document.getElementById('spinner');
+    const btnIcon    = document.getElementById('btn-icon');
+    const tabPreview = document.getElementById('tab-preview');
+    const tabCode    = document.getElementById('tab-code');
+    const statsRow   = document.getElementById('stats-row');
+
+    let selectedFile = null;
+    let generatedHtml = '';
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024*1024)).toFixed(1) + ' MB';
+    }
+
+    function setFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        showError('Please select a valid image file (JPEG, PNG, WEBP, or GIF).');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showError('File is too large. Maximum size is 10 MB.');
+        return;
+      }
+      hideError();
+      selectedFile = file;
+      const url = URL.createObjectURL(file);
+      previewImg.src = url;
+      previewName.textContent = file.name;
+      previewSize.textContent = formatBytes(file.size);
+      previewWrap.classList.add('visible');
+      updateGenerateBtn();
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      fileInput.value = '';
+      previewWrap.classList.remove('visible');
+      previewImg.src = '';
+      updateGenerateBtn();
+    }
+
+    function updateGenerateBtn() {
+      generateBtn.disabled = !selectedFile || !apiUrl.value.trim();
+    }
+
+    function showError(msg) {
+      errorBox.textContent = '⚠ ' + msg;
+      errorBox.classList.add('visible');
+    }
+
+    function hideError() {
+      errorBox.classList.remove('visible');
+    }
+
+    function setProgress(pct, label) {
+      progressFill.style.width = pct + '%';
+      progressLabel.textContent = label;
+    }
+
+    function setLoading(loading) {
+      generateBtn.disabled = loading;
+      spinner.classList.toggle('visible', loading);
+      btnIcon.style.display = loading ? 'none' : '';
+      progressWrap.classList.toggle('visible', loading);
+      if (!loading) { progressFill.style.width = '0%'; }
+    }
+
+    // ── Events ────────────────────────────────────────────────────────────────
+    browseLink.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', (e) => { if (e.target !== browseLink) fileInput.click(); });
+    dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+    removeBtn.addEventListener('click', (e) => { e.stopPropagation(); clearFile(); });
+    apiUrl.addEventListener('input', updateGenerateBtn);
+
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+    });
+
+    // ── Tabs ──────────────────────────────────────────────────────────────────
+    tabPreview.addEventListener('click', () => {
+      tabPreview.classList.add('active');
+      tabCode.classList.remove('active');
+      previewIframe.style.display = 'block';
+      codeView.style.display = 'none';
+    });
+    tabCode.addEventListener('click', () => {
+      tabCode.classList.add('active');
+      tabPreview.classList.remove('active');
+      previewIframe.style.display = 'none';
+      codeView.style.display = 'block';
+    });
+
+    // ── Generate ──────────────────────────────────────────────────────────────
+    generateBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+      const backendUrl = apiUrl.value.trim().replace(/\/$/, '');
+      if (!backendUrl) { showError('Please enter your backend URL.'); return; }
+
+      hideError();
+      resultSection.classList.remove('visible');
+      setLoading(true);
+      setProgress(10, 'Optimizing image…');
+
+      try {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        setProgress(30, 'Sending to Gemini…');
+
+        const res = await fetch(`${backendUrl}/generate`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        setProgress(80, 'Receiving generated HTML…');
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (!data.success || !data.html) throw new Error('No HTML returned from API.');
+
+        generatedHtml = data.html;
+        setProgress(100, 'Done!');
+
+        // Populate stats
+        statsRow.innerHTML = '';
+        if (data.original_size_kb) {
+          statsRow.innerHTML += `<div class="stat">Original <strong>${data.original_size_kb} KB</strong></div>`;
+        }
+        if (data.optimized_size_kb) {
+          statsRow.innerHTML += `<div class="stat">Optimized <strong>${data.optimized_size_kb} KB</strong></div>`;
+        }
+        const htmlKb = (new TextEncoder().encode(generatedHtml).length / 1024).toFixed(1);
+        statsRow.innerHTML += `<div class="stat">Output HTML <strong>${htmlKb} KB</strong></div>`;
+
+        // Show result
+        previewIframe.srcdoc = generatedHtml;
+        codeView.textContent = generatedHtml;
+        resultSection.classList.add('visible');
+        resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Reset tabs to preview
+        tabPreview.classList.add('active');
+        tabCode.classList.remove('active');
+        previewIframe.style.display = 'block';
+        codeView.style.display = 'none';
+
+      } catch (err) {
+        showError(err.message || 'Something went wrong. Is your backend running?');
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    // ── Download ──────────────────────────────────────────────────────────────
+    downloadBtn.addEventListener('click', () => {
+      if (!generatedHtml) return;
+      const blob = new Blob([generatedHtml], { type: 'text/html' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'generated-site.html';
+      a.click();
+    });
+
+    openBtn.addEventListener('click', () => {
+      if (!generatedHtml) return;
+      const blob = new Blob([generatedHtml], { type: 'text/html' });
+      window.open(URL.createObjectURL(blob), '_blank');
+    });
+  </script>
+</body>
+</html>
