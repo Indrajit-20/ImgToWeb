@@ -60,6 +60,12 @@ Requirements:
 7. Add subtle hover effects and polish where appropriate.
 8. The page must work with zero external dependencies (no CDN links unless clearly shown in the image).
 
+Hard rules (important for iframe embedding):
+9. Do NOT include ANY absolute URLs. Do NOT include http://, https://, //, localhost, 0.0.0.0, or LAN IPs in href/src/action.
+10. Do NOT include <iframe>, <object>, <embed>, or navigation that changes window.location.
+11. If you need assets, inline them (e.g., data: URLs) or avoid external requests.
+12. Use only relative paths if absolutely required (prefer inlining instead).
+
 Output the complete HTML document starting with <!DOCTYPE html> and nothing else."""
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
