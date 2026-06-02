@@ -212,19 +212,8 @@
       flex-wrap: wrap;
     }
 
-    .api-input-wrap {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex: 1;
-      min-width: 200px;
-    }
-    .api-input-wrap label { font-size: 0.82rem; color: var(--muted); white-space: nowrap; }
     #api-url {
-      flex: 1;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
+      display: none;
       font-family: var(--font-body);
       font-size: 0.82rem;
       padding: 9px 12px;
@@ -469,11 +458,8 @@
       </div>
 
       <!-- Bottom controls -->
+      <input type="hidden" id="api-url" value="https://imgtoweb.onrender.com" />
       <div class="card-bottom">
-        <div class="api-input-wrap">
-          <label for="api-url">Backend URL</label>
-          <input type="text" id="api-url" placeholder="https://your-app.onrender.com" />
-        </div>
         <button id="generate-btn" disabled>
           <span class="spinner" id="spinner"></span>
           <svg id="btn-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -589,7 +575,7 @@
     }
 
     function updateGenerateBtn() {
-      generateBtn.disabled = !selectedFile || !apiUrl.value.trim();
+      generateBtn.disabled = !selectedFile;
     }
 
     function showError(msg) {
@@ -620,7 +606,6 @@
     dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
     fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
     removeBtn.addEventListener('click', (e) => { e.stopPropagation(); clearFile(); });
-    apiUrl.addEventListener('input', updateGenerateBtn);
 
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
@@ -647,8 +632,6 @@
     // ── Generate ──────────────────────────────────────────────────────────────
     generateBtn.addEventListener('click', async () => {
       if (!selectedFile) return;
-      const backendUrl = apiUrl.value.trim().replace(/\/$/, '');
-      if (!backendUrl) { showError('Please enter your backend URL.'); return; }
 
       hideError();
       resultSection.classList.remove('visible');
@@ -661,6 +644,7 @@
 
         setProgress(30, 'Sending to Gemini…');
 
+        const backendUrl = apiUrl.value.trim().replace(/\/$/, '');
         const res = await fetch(`${backendUrl}/generate`, {
           method: 'POST',
           body: formData,
